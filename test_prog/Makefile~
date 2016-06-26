@@ -1,0 +1,6 @@
+SOURCES = prog01.asm prog02.asm
+
+all: $(SOURCES)
+	machJetzt
+
+machJetzt: ./nja $@

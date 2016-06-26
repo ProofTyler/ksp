@@ -1,0 +1,8 @@
+./nja prog01.asm ../prog01.bin;
+./nja prog02.asm ../prog02.bin;
+./nja prog03.asm ../prog03.bin;
+./nja prog04.asm ../prog04.bin;
+./nja prog05.asm ../prog05.bin;
+./nja prog06.asm ../prog06.bin;
+./nja prog07.asm ../prog07.bin;
+./nja prog08.asm ../prog08.bin;

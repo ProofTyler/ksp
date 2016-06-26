@@ -1,0 +1,3 @@
+all: 
+	./nja prog1.asm prog01.bin
+	./nja prog2.asm prog02.bin
