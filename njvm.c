@@ -4,14 +4,44 @@
 #include <bigint.h>
 #include "procedures.h"
 
-StackSlot stack[10000];
+StackSlot *stack;
 ObjRef *sda;
 ObjRef rg;
 int stackPointer = 0;
 int framepointer = 0;
-int version = 6;
+int version = 8;
 int debug_pc;
 bool isDebug = false;
+
+
+ObjRef newPrimObject(int dataSize) {
+  ObjRef objRef;
+
+  objRef = malloc(sizeof(unsigned int) +
+                  dataSize * sizeof(unsigned char));
+  if (objRef == NULL) {
+    fatalError("newPrimObject() got no memory");
+  }
+  objRef->size = dataSize;
+  return objRef;
+}
+
+void fatalError(char *msg) {
+  printf("Fatal error: %s\n", msg);
+  exit(1);
+}
+
+
+ObjRef newCompoundObject(int n){
+	ObjRef superObj = malloc(sizeof(unsigned int) + (n * sizeof(ObjRef)) );
+	superObj->size = n | MSB;
+	n--;
+	while(n != -1){
+		GET_REFS(superObj)[n] = NULL;
+		n--;
+	}
+	return superObj;
+}
 
 
 void pushObjRef(ObjRef objRef){
@@ -44,7 +74,9 @@ void runCode(unsigned int *instuctions){
 	int pc = 0;
 	bool stop = false;
 	char readChar;
+	int index;
 	ObjRef ref;
+	ObjRef ref2;
 	if(isDebug) pc = debug_pc;
 	while(!stop){
 		unsigned int ir = instuctions[pc] >> 24;
@@ -55,7 +87,8 @@ void runCode(unsigned int *instuctions){
 				stop = true;
 				break;
 			case PUSHC:
-				bigFromInt(immediateVal); pushObjRef(bip.res);
+				bigFromInt(immediateVal); 
+				pushObjRef(bip.res);
 				break;			
 			case PUSHG:
 				pushObjRef(sda[immediateVal]);
@@ -64,14 +97,16 @@ void runCode(unsigned int *instuctions){
 				pushSDA(immediateVal);
 				break;
 			case POPL:
-				stack[framepointer + immediateVal].u.number = pop();
+				/*stack[framepointer + immediateVal].isObjRef = TRUE;*/
+				stack[framepointer + immediateVal].u.objRef = popObjRef();
+				/*stack[framepointer + immediateVal].u.number = pop();*/
 				break;
 			case PUSHL:
-				push(stack[framepointer + immediateVal].u.number);
+				pushObjRef(stack[framepointer + immediateVal].u.objRef);
 				break;
-			case WRINT: 
-				bip.op1 = popObjRef();
-				printf("%d", bigToInt());
+			case WRINT:
+				bip.op1 = popObjRef();				
+				bigPrint(stdout);
 				break;
 			case WRCHR: 
 				bip.op1 = popObjRef(); 
@@ -82,7 +117,7 @@ void runCode(unsigned int *instuctions){
 				pushObjRef(bip.res);
 				break;			
 			case RDCHR:
-				scanf("%c", &readChar);bigFromInt((unsigned char)readChar); 
+				scanf("%c", &readChar);bigFromInt((int)readChar); 
 				pushObjRef(bip.res);
 				break;
 			case ASF:
@@ -103,16 +138,15 @@ void runCode(unsigned int *instuctions){
 				break;
 			case BRF:
 				bip.op1 = popObjRef(); 
-				if(bigToInt() == TRUE) break;
-				else pc = immediateVal;
+				if(bigToInt() != TRUE) pc = immediateVal;
 				break;
 			case BRT:
 				bip.op1 = popObjRef(); 
-				if(bigToInt() == FALSE) break;
-				else pc = immediateVal; 
+				if(bigToInt() != FALSE) pc = immediateVal; 
 				break;
 			case RET:
-				pc = stack[stackPointer-1].u.number;
+				/*pc = stack[stackPointer-1].u.number;*/
+				pc = pop();
 				break;
 			case DROP:
 				while(immediateVal != 0){
@@ -132,33 +166,86 @@ void runCode(unsigned int *instuctions){
 				pushObjRef(ref);
 				break;
 			case NEW :  
-				/*
-				-n1 = Anzahl Refs von immediateWert
-				-neues Objekt mit malloc und size =
-				*/
+				pushObjRef(newCompoundObject( immediateVal));
 				break;
 			case GETF :
+				ref = popObjRef();
+				pushObjRef(GET_REFS(ref)[immediateVal]);
 				break;
 			case PUTF :
+				ref = popObjRef();
+				ref2 = popObjRef();
+				GET_REFS(ref2)[immediateVal] = ref;
 				break;
 			case NEWA :
+				bip.op1 = popObjRef();
+				ref = newCompoundObject(bigToInt());
+				pushObjRef(ref);
 				break;
 			case GETFA :
+				bip.op1 = popObjRef();
+				ref = popObjRef();
+				index = bigToInt();
+
+				if (index < 0 || index > GET_SIZE(ref)) {
+					printf("Index is out of bounds exception!\n");
+					exit(99);
+				} else {
+					pushObjRef(GET_REFS(ref)[index]);
+				}
 				break;
 			case PUTFA :
+				ref2 = popObjRef();
+				bip.op1 = popObjRef();
+				ref = popObjRef();
+				index = bigToInt();
+				if (index < 0 || index > GET_SIZE(ref)) {
+					printf("Index is out of bounds exception!\n");
+					exit(99);
+				} else {
+					GET_REFS(ref)[index] = ref2;
+				}
 				break;
 			case GETSZ :
+				ref = popObjRef();
+				if (IS_PRIM(ref) == TRUE) {
+					bigFromInt(-1);
+					pushObjRef(bip.res);
+				} else {
+					bigFromInt(GET_SIZE(ref));
+					pushObjRef(bip.res);
+				}
 				break;
 			case PUSHN :
+				pushObjRef(NULL);
 				break;
 			case REFEQ :
+				ref = popObjRef();
+				ref2 = popObjRef();
+				if (GET_REFS(ref) == GET_REFS(ref2)) {
+					bigFromInt(TRUE);
+					pushObjRef(bip.res);
+				} else {
+					bigFromInt(FALSE);
+					pushObjRef(bip.res);
+				}
 				break;
 			case REFNE :
+				ref = popObjRef();
+				ref2 = popObjRef();
+				if (GET_REFS(ref) == GET_REFS(ref2)) {
+					bigFromInt(FALSE);
+					pushObjRef(bip.res);
+				} else {
+					bigFromInt(TRUE);
+					pushObjRef(bip.res);
+				}
 				break;
 			case ADD:
 				bip.op2 = popObjRef();
 				bip.op1 = popObjRef();		
-				bigAdd();pushObjRef(bip.res);				
+				bigAdd();
+				pushObjRef(bip.res);				
 				break;
 			case SUB:
 				bip.op2 = popObjRef();
@@ -388,7 +475,8 @@ void readFile(char *fileName){
 		} else {
 			int fileVersion;
 			int irSize;
-			int sdaSize;			
+			int sdaSize;
+			int n_stack = 64;		
 			unsigned int *instructions;
 			if(! (((feld[0] >> 0)&0xFF) == 'N' && ((feld[0] >> 8)&0xFF) == 'J' && 
 			((feld[0] >> 16)&0xFF) == 'B' &&  ((feld[0] >> 24)&0xFF) == 'F') ){
@@ -406,10 +494,6 @@ void readFile(char *fileName){
 			if(irSize == 0){
 				printf("Error: No instructions available\n");
 				exit(99);	
-			}
-			if(irSize >= 10000){
-				printf("StackOverflow: Too much instructions!\n");
-				exit(99);
 			}	
 			instructions = malloc(sizeof(int)*irSize);
 			if(fread(instructions, sizeof(int), irSize,fp) != irSize){
@@ -423,11 +507,13 @@ void readFile(char *fileName){
 				printf("%s", STARTED_NJVM);
 				debug(instructions, fileName, irSize, sdaSize);
 			}else{
-				printf("%s", STARTED_NJVM);				
+				printf("%s", STARTED_NJVM);
+				stack = malloc(n_stack * 1024);
 				runCode(instructions);				
 			}
 			printf("%s", STOPPED_NJVM);			
 
+			free(stack);
 			free(sda);
 			free(instructions);
 			fclose(fp);			
@@ -442,6 +528,40 @@ void readFile(char *fileName){
 int main(int argc, char *argv[]) {
 	int arg = argc - 1;
 	int isOption = false;
+
+/*
+	int *array = malloc(100);
+	Hotzenplotz *p;
+
+
+	*(array+0) = 13;
+	*(array+1) = 14;
+	*(array+2) = 15;
+
+	array[0] = 13;
+	array[1] = 14;
+	array[2] = 15;
+
+	
+	p = malloc(100);
+	*(p+0) = 2;
+	*(p+1) = 3;
+	*(p+2) = 4;
+
+	p = &p[2];
+	p = p - 2;
+
+	printf("%d\n", array[1]);
+	printf("%d\n", *array+1 );
+	printf("%d\n", *array+2 );
+	printf("%d\n", * &array[1] );
+
+	printf("%d\n", *(p+0)  );
+	printf("%d\n",  (int)* p );
+	
+*/
+
+
 	if(argc < 2){
 		printf("Error: no code file specified\n");
 		exit(99);

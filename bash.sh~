@@ -8,7 +8,6 @@
 ./nja test_prog/prog08.asm prog08.bin;
 ./nja test_prog/newFraction.asm newFraction.bin;
 ./nja test_prog/newMatrix.asm newMatrix.bin;
-./nja test_prog/subFraction.asm subFraction.bin;
-
+./nja test_prog/newMatrix.asm newMatrix.bin;
 
 ./nja test_prog/myProg01.asm myProg01.bin;

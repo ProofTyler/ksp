@@ -102,6 +102,8 @@ typedef struct {
 } StackSlot;
 
 
+typedef int Hotzenplotz;
+
 #define STARTED_NJVM "Ninja Virtual Machine started\n"
 #define STOPPED_NJVM "Ninja Virtual Machine stopped\n"
 
